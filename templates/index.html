@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SysMon-ML | Real-Time Anomaly Detection</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Chart.js — the charting library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!-- Socket.IO — for real-time WebSocket communication -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <!-- Our stylesheet -->
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+
+<body>
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header class="header">
+
+    <div class="header-logo">
+      <div class="logo-icon">🖥️</div>
+      <div class="logo-text">SYS<span>MON</span>-ML</div>
+    </div>
+
+    <div class="header-status">
+      <div class="status-badge">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">LIVE</span>
+      </div>
+      <div class="header-time" id="header-time">00:00:00</div>
+    </div>
+
+    <nav class="header-nav">
+      <button class="nav-btn active">Dashboard</button>
+      <a href="/api/history"  target="_blank"><button class="nav-btn">API</button></a>
+      <a href="/api/anomalies" target="_blank"><button class="nav-btn">Anomalies</button></a>
+    </nav>
+
+  </header>
+
+  <!-- ============================================================
+       MAIN CONTENT
+       ============================================================ -->
+  <main class="main-container">
+
+    <!-- Alert banner (shown when an anomaly is detected in real-time) -->
+    <div class="alert-banner" id="alert-banner">
+      <span>🚨</span>
+      <span id="alert-msg">Anomaly detected!</span>
+    </div>
+
+    <!-- ── STAT CARDS ────────────────────────────────────────── -->
+    <section class="stats-grid">
+
+      <!-- CPU Card -->
+      <div class="stat-card cpu" id="card-cpu">
+        <div class="stat-header">
+          <span class="stat-label">CPU Usage</span>
+          <span class="stat-icon">⚡</span>
+        </div>
+        <div class="stat-value">
+          <span id="cpu-val">—</span>
+          <span class="stat-unit">%</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" id="cpu-bar" style="width: 0%"></div>
+        </div>
+        <div class="stat-sub">Processor utilization</div>
+      </div>
+
+      <!-- Memory Card -->
+      <div class="stat-card memory" id="card-memory">
+        <div class="stat-header">
+          <span class="stat-label">Memory</span>
+          <span class="stat-icon">🧠</span>
+        </div>
+        <div class="stat-value">
+          <span id="mem-val">—</span>
+          <span class="stat-unit">%</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" id="mem-bar" style="width: 0%"></div>
+        </div>
+        <div class="stat-sub">RAM utilization</div>
+      </div>
+
+      <!-- Disk Card -->
+      <div class="stat-card disk" id="card-disk">
+        <div class="stat-header">
+          <span class="stat-label">Disk</span>
+          <span class="stat-icon">💾</span>
+        </div>
+        <div class="stat-value">
+          <span id="disk-val">—</span>
+          <span class="stat-unit">%</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" id="disk-bar" style="width: 0%"></div>
+        </div>
+        <div class="stat-sub">Storage utilization</div>
+      </div>
+
+      <!-- Network Card -->
+      <div class="stat-card network" id="card-network">
+        <div class="stat-header">
+          <span class="stat-label">Network I/O</span>
+          <span class="stat-icon">🌐</span>
+        </div>
+        <div class="stat-value">
+          <span id="net-val">—</span>
+          <span class="stat-unit" style="font-size:0.8rem">MB</span>
+        </div>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill" style="width: 50%; background: var(--chart-net)"></div>
+        </div>
+        <div class="stat-sub">Total sent + received</div>
+      </div>
+
+    </section>
+
+    <!-- ── CHARTS ─────────────────────────────────────────────── -->
+    <section class="charts-grid">
+
+      <!-- CPU Chart -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-panel-title">
+            <div class="chart-indicator" style="background: var(--chart-cpu)"></div>
+            CPU Utilization
+          </div>
+          <div class="chart-current-val" id="cpu-current" style="color: var(--chart-cpu)">—</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-cpu"></canvas>
+        </div>
+      </div>
+
+      <!-- Memory Chart -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-panel-title">
+            <div class="chart-indicator" style="background: var(--chart-memory)"></div>
+            Memory Usage
+          </div>
+          <div class="chart-current-val" id="mem-current" style="color: var(--chart-memory)">—</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-memory"></canvas>
+        </div>
+      </div>
+
+      <!-- Disk Chart -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-panel-title">
+            <div class="chart-indicator" style="background: var(--chart-disk)"></div>
+            Disk Utilization
+          </div>
+          <div class="chart-current-val" id="disk-current" style="color: var(--chart-disk)">—</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-disk"></canvas>
+        </div>
+      </div>
+
+      <!-- Network Chart -->
+      <div class="chart-panel">
+        <div class="chart-panel-header">
+          <div class="chart-panel-title">
+            <div class="chart-indicator" style="background: var(--chart-net)"></div>
+            Network I/O
+          </div>
+          <div class="chart-current-val" id="net-current" style="color: var(--chart-net)">—</div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-net"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── BOTTOM ROW ────────────────────────────────────────── -->
+    <section class="bottom-grid">
+
+      <!-- Anomaly Table -->
+      <div class="anomaly-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            🚨 Detected Anomalies
+            <span class="anomaly-count-badge" id="anomaly-badge">0</span>
+          </div>
+        </div>
+        <div class="anomaly-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>CPU</th>
+                <th>Memory</th>
+                <th>Disk</th>
+                <th>Net I/O</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="anomaly-tbody">
+              <tr>
+                <td colspan="6" class="no-anomalies">
+                  ⏳ Waiting for anomaly detection data…
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ML Status Panel -->
+      <div class="ml-panel">
+        <div class="panel-header" style="background: rgba(0, 170, 255, 0.04);">
+          <div class="panel-title">🧠 ML Engine</div>
+        </div>
+
+        <div class="ml-status-list">
+          <div class="ml-status-row">
+            <span class="ml-status-label">Status</span>
+            <span class="ml-status-val waiting" id="ml-trained">INITIALIZING</span>
+          </div>
+
+          <div class="ml-status-row">
+            <span class="ml-status-label">Isolation Forest</span>
+            <span class="ml-status-val waiting" id="ml-if-ready">NOT READY</span>
+          </div>
+
+          <div class="ml-status-row">
+            <span class="ml-status-label">One-Class SVM</span>
+            <span class="ml-status-val waiting" id="ml-svm-ready">NOT READY</span>
+          </div>
+        </div>
+
+        <div class="ml-divider"></div>
+
+        <div class="ml-status-list">
+          <div class="ml-status-row">
+            <span class="ml-status-label">Total Records</span>
+            <span class="ml-status-val" id="ml-total-rec"
+                  style="color: var(--text-primary)">—</span>
+          </div>
+
+          <div class="ml-status-row">
+            <span class="ml-status-label">Anomalies Found</span>
+            <span class="ml-status-val" id="ml-total-anom"
+                  style="color: var(--accent-red)">—</span>
+          </div>
+        </div>
+
+        <div class="ml-divider"></div>
+
+        <button class="retrain-btn" id="retrain-btn">
+          ↺ RETRAIN MODELS
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
+  <footer class="footer">
+    SysMon-ML &nbsp;|&nbsp; Real-Time System Monitoring with Anomaly Detection
+    &nbsp;|&nbsp; Isolation Forest + One-Class SVM
+  </footer>
+
+  <!-- Our dashboard JS (loads AFTER the DOM is ready) -->
+  <script src="/static/js/dashboard.js"></script>
+
+</body>
+</html>
